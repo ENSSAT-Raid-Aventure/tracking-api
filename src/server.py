@@ -6,13 +6,16 @@ from tracking_tools import *
 
 
 class MainHandler(tornado.web.RequestHandler):
+
     def get(self):
         self.write("LoRa API for 'ENSSAT Raid Aventure' !")
 
     def post(self):
         logger.debug(self.request.body)
-        dev_id, data_str = decode_body(self.request.body)
+        dev_id, data_str, rssi, snr = decode_body(self.request.body)
         gps_data = parse_data(data_str)
+        gps_data['rssi'] = rssi
+        gps_data['snr'] = snr
 
         if gps_data:
             log_result(dev_id, gps_data, logger)
@@ -29,9 +32,9 @@ if __name__ == "__main__":
     FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     logging.basicConfig(format=FORMAT)
     logger = logging.getLogger('LoRa API')
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(logging.INFO)
     app = make_app()
     app.listen(8080)
-    global collection 
+    global collection
     collection = init_database('valentin-boucher.fr', 27017)
     tornado.ioloop.IOLoop.current().start()

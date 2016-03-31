@@ -8,7 +8,6 @@ import logging
 from lxml import etree
 
 
-
 def time_to_timestamp(time):
     dt = datetime.strptime(time, "%H%M%S")
     dt_now = datetime.now()
@@ -16,12 +15,17 @@ def time_to_timestamp(time):
 
     return calendar.timegm(dt.utctimetuple())
 
+
 def decode_body(body_content):
     tree = etree.fromstring(body_content)
     dev_id = tree.find('{http://uri.actility.com/lora}DevEUI').text
-    data_str = tree.find('{http://uri.actility.com/lora}payload_hex').text.decode("hex")
+    data_str = tree.find(
+        '{http://uri.actility.com/lora}payload_hex').text.decode("hex")
+    rssi = tree.find('{http://uri.actility.com/lora}LrrRSSI').text
+    snr = tree.find('{http://uri.actility.com/lora}LrrSNR').text
 
-    return dev_id, data_str
+    return dev_id, data_str, rssi, snr
+
 
 def parse_data(data_str):
     data_pattern = ".*;.*;.*"
@@ -35,10 +39,14 @@ def parse_data(data_str):
         _data['timestamp'] = time_to_timestamp(data[0])
         return _data
 
+
 def store_in_db(dev_id, collection, gps_data):
     if collection:
-        collection.update({"properties.dev_id": dev_id},{"$push": {"geometry.coordinates": gps_data['coordinate']}})
-        collection.update({"properties.dev_id": dev_id},{"$push": {"properties.time": gps_data['timestamp']}})
+        collection.update({"properties.dev_id": dev_id}, {
+                          "$push": {"geometry.coordinates": gps_data['coordinate']}})
+        collection.update({"properties.dev_id": dev_id}, {
+                          "$push": {"properties.time": gps_data['timestamp']}})
+
 
 def push_to_livesite(dev_id, gps_data):
     _data = {}
@@ -49,10 +57,13 @@ def push_to_livesite(dev_id, gps_data):
     live_api_url = "http://84.39.44.100:8080"
     if live_api_url:
         url = live_api_url + "/api/update"
-        requests.put(url=url, data=_data) 
+        requests.put(url=url, data=_data)
+
 
 def log_result(dev_id, gps_data, logger):
-    logger.info("DEVICE ID : %s CORD :  %s,%s TIME: %s", dev_id, gps_data['coordinate'][0], gps_data['coordinate'][1], gps_data['time'])
+    logger.info("DEVICE ID: %s CORD:  %s,%s TIME: %s RSSI: %s SNR: %s ", dev_id, gps_data['coordinate'][
+                0], gps_data['coordinate'][1], gps_data['time'], gps_data['rssi'], gps_data['snr'])
+
 
 def init_database(url, port):
     client = MongoClient(url, port)
